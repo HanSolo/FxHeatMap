@@ -1,6 +1,7 @@
 package eu.hansolo.fx.heatmap;
 
 import javafx.animation.Interpolator;
+import javafx.geometry.Point2D;
 import javafx.scene.SnapshotParametersBuilder;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -10,9 +11,7 @@ import javafx.scene.image.PixelReader;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
-import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
-import javafx.scene.paint.LinearGradientBuilder;
 import javafx.scene.paint.Stop;
 
 import java.util.LinkedList;
@@ -26,36 +25,17 @@ import java.util.List;
  * Time: 07:49
  */
 public class SimpleHeatMap {
-    public static enum ColorMapping {
-        LIME_YELLOW_RED(new Stop(0.0, Color.LIME), new Stop(0.8, Color.YELLOW), new Stop(1.0, Color.RED)),
-        BLUE_CYAN_GREEN_YELLOW_RED(new Stop(0.0, Color.BLUE), new Stop(0.25, Color.CYAN), new Stop(0.5, Color.LIME), new Stop(0.75, Color.YELLOW), new Stop(1.0, Color.RED)),
-        INFRARED_1(new Stop(0.0, Color.BLACK), new Stop(0.1, Color.rgb(25, 20, 126)), new Stop(0.3, Color.rgb(192, 40, 150)), new Stop(0.5, Color.rgb(234, 82, 10)), new Stop(0.85, Color.rgb(255, 220, 25)), new Stop(1.0, Color.WHITE)),
-        INFRARED_2(new Stop(0.0, Color.BLACK), new Stop(0.1, Color.rgb(1, 20, 127)), new Stop(0.2, Color.rgb(1, 13, 100)), new Stop(0.4, Color.rgb(95, 172, 68)), new Stop(0.5, Color.rgb(210, 197, 12)), new Stop(0.65, Color.rgb(225, 53, 56)), new Stop(1.0, Color.WHITE)),
-        BLACK_WHITE(new Stop(0.0, Color.BLACK), new Stop(1.0, Color.WHITE)),
-        WHITE_BLACK(new Stop(0.0, Color.WHITE), new Stop(1.0, Color.BLACK));
-
-        public LinearGradient mapping;
-
-        ColorMapping(final Stop... STOPS) {
-            mapping = LinearGradientBuilder.create()
-                                           .startX(0).startY(0)
-                                           .endX(100).endY(0)
-                                           .proportional(false)
-                                           .cycleMethod(CycleMethod.NO_CYCLE)
-                                           .stops(STOPS)
-                                           .build();
-        }
-    }
-    private ColorMapping    colorMapping;
-    private LinearGradient  mappingGradient;
-    private boolean         fadeColors;
-    private double          radius;
-    private Image           eventImage;
-    private Canvas          monochrome;
-    private GraphicsContext ctx;
-    private WritableImage   monochromeImage;
-    private WritableImage   heatMap;
-    private ImageView       heatMapView;
+    private ColorMapping        colorMapping;
+    private LinearGradient      mappingGradient;
+    private boolean             fadeColors;
+    private double              radius;
+    private OpacityDistribution opacityDistribution;
+    private Image               eventImage;
+    private Canvas              monochromeCanvas;
+    private GraphicsContext     ctx;
+    private WritableImage       monochromeImage;
+    private WritableImage       heatMap;
+    private ImageView           heatMapView;
 
 
     // ******************** Constructors **************************************
@@ -76,9 +56,11 @@ public class SimpleHeatMap {
         mappingGradient     = colorMapping.mapping;
         fadeColors          = FADE_COLORS;
         radius              = EVENT_RADIUS;
-        eventImage          = createEventImage(radius);
-        monochrome          = new Canvas(WIDTH, HEIGHT);
-        ctx                 = monochrome.getGraphicsContext2D();
+        opacityDistribution = OpacityDistribution.CUSTOM;
+        eventImage          = createEventImage(radius, opacityDistribution);
+        monochromeCanvas    = new Canvas(WIDTH, HEIGHT);
+        ctx                 = monochromeCanvas.getGraphicsContext2D();
+        monochromeImage     = new WritableImage((int) WIDTH, (int) HEIGHT);
         heatMapView         = new ImageView(heatMap);
         heatMapView.setMouseTransparent(true);
         heatMapView.setOpacity(0.5);
@@ -99,9 +81,23 @@ public class SimpleHeatMap {
         addEvent(X, Y, eventImage, radius, radius);
     }
 
+    public void addEvents(final Point2D... EVENTS) {
+        for (Point2D event : EVENTS) {
+            ctx.drawImage(eventImage, event.getX() - radius, event.getY() - radius);
+        }
+        updateHeatMap();
+    }
+
+    public void addEvents(final List<Point2D> EVENTS) {
+        for (Point2D event : EVENTS) {
+            ctx.drawImage(eventImage, event.getX() - radius, event.getY() - radius);
+        }
+        updateHeatMap();
+    }
+
     public void clearHeatMap() {
-        ctx.clearRect(0, 0, monochrome.getWidth(), monochrome.getHeight());
-        monochromeImage = new WritableImage(monochrome.widthProperty().intValue(), monochrome.heightProperty().intValue());
+        ctx.clearRect(0, 0, monochromeCanvas.getWidth(), monochromeCanvas.getHeight());
+        monochromeImage = new WritableImage(monochromeCanvas.widthProperty().intValue(), monochromeCanvas.heightProperty().intValue());
         updateHeatMap();
     }
 
@@ -139,48 +135,47 @@ public class SimpleHeatMap {
 
     public void setEventRadius(final double RADIUS) {
         radius     = RADIUS < 1 ? 1 : RADIUS;
-        eventImage = createEventImage(radius);
+        eventImage = createEventImage(radius, opacityDistribution);
+    }
+
+    public OpacityDistribution getOpacityDistribution() {
+        return opacityDistribution;
+    }
+
+    public void setOpacityDistribution(final OpacityDistribution OPACITY_DISTRIBUTION) {
+        opacityDistribution = OPACITY_DISTRIBUTION;
+        eventImage          = createEventImage(radius, opacityDistribution);
     }
 
     public void setSize(final double WIDTH, final double HEIGHT) {
-        monochrome.setWidth(WIDTH);
-        monochrome.setHeight(HEIGHT);
+        monochromeCanvas.setWidth(WIDTH);
+        monochromeCanvas.setHeight(HEIGHT);
         if (WIDTH > 0 && HEIGHT > 0) {
-            monochromeImage = new WritableImage(monochrome.widthProperty().intValue(), monochrome.heightProperty().intValue());
+            monochromeImage = new WritableImage(monochromeCanvas.widthProperty().intValue(), monochromeCanvas.heightProperty().intValue());
             updateHeatMap();
         }
     }
 
-    public Image createEventImage(final double RADIUS) {
+    public Image createEventImage(final double RADIUS, final OpacityDistribution OPACITY_DISTRIBUTION) {
         radius = RADIUS < 1 ? 1 : RADIUS;
-        Stop[] stops = {
-            new Stop(0.0, Color.rgb(255, 255, 255, 0.90)),
-            new Stop(0.0, Color.rgb(255, 255, 255, 0.56)),
-            new Stop(0.0, Color.rgb(255, 255, 255, 0.40)),
-            new Stop(0.0, Color.rgb(255, 255, 255, 0.28)),
-            new Stop(0.0, Color.rgb(255, 255, 255, 0.20)),
-            new Stop(0.0, Color.rgb(255, 255, 255, 0.14)),
-            new Stop(0.0, Color.rgb(255, 255, 255, 0.10)),
-            new Stop(0.0, Color.rgb(255, 255, 255, 0.07)),
-            new Stop(0.0, Color.rgb(255, 255, 255, 0.05)),
-            new Stop(0.0, Color.rgb(255, 255, 255, 0.03)),
-            new Stop(0.0, Color.TRANSPARENT)
-        };
-
+        Stop[] stops = new Stop[11];
+        for (int i = 0 ; i < 11 ; i++) {
+            stops[i] = new Stop(i * 0.1, Color.rgb(255, 255, 255, OPACITY_DISTRIBUTION.distribution[i]));
+        }
         int           size          = (int) (radius * 2);
         WritableImage raster        = new WritableImage(size, size);
-        PixelWriter pixelWriter   = raster.getPixelWriter();
+        PixelWriter   pixelWriter   = raster.getPixelWriter();
         double        maxDistFactor = 1 / radius;
         Color         pixelColor;
         for (int y = 0 ; y < size ; y++) {
             for (int x = 0 ; x < size ; x++) {
                 double distanceX = radius - x;
                 double distanceY = radius - y;
-                double distance = Math.sqrt((distanceX * distanceX) + (distanceY * distanceY));
-                double fraction = maxDistFactor * distance;
+                double distance  = Math.sqrt((distanceX * distanceX) + (distanceY * distanceY));
+                double fraction  = maxDistFactor * distance;
                 for (int i = 0 ; i < 10 ; i++) {
                     if (Double.compare(fraction, stops[i].getOffset()) >= 0 && Double.compare(fraction, stops[i + 1].getOffset()) <= 0) {
-                        pixelColor  = (Color) Interpolator.LINEAR.interpolate(stops[i].getColor(), stops[i + 1].getColor(), (fraction - stops[i].getOffset()) / 0.1);
+                        pixelColor = (Color) Interpolator.LINEAR.interpolate(stops[i].getColor(), stops[i + 1].getColor(), (fraction - stops[i].getOffset()) / 0.1);
                         pixelWriter.setColor(x, y, pixelColor);
                         break;
                     }
@@ -191,7 +186,7 @@ public class SimpleHeatMap {
     }
 
     private void updateHeatMap() {
-        monochrome.snapshot(SnapshotParametersBuilder.create().fill(Color.TRANSPARENT).build(), monochromeImage);
+        monochromeCanvas.snapshot(SnapshotParametersBuilder.create().fill(Color.TRANSPARENT).build(), monochromeImage);
         heatMap = new WritableImage(monochromeImage.widthProperty().intValue(), monochromeImage.heightProperty().intValue());
         PixelWriter pixelWriter = heatMap.getPixelWriter();
         PixelReader pixelReader = monochromeImage.getPixelReader();

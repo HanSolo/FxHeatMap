@@ -42,7 +42,7 @@ public class HeatMapDemo extends Application {
     // ******************** Initialization ************************************
     @Override public void init() {
         pane                         = new StackPane();
-        heatMap                      = new HeatMap(400, 400, HeatMap.ColorMapping.BLUE_CYAN_GREEN_YELLOW_RED);
+        heatMap                      = new HeatMap(400, 400, ColorMapping.BLUE_CYAN_GREEN_YELLOW_RED);
         sliderOpacity                = new Slider();
         button1                      = new Button("Button 1");
         button2                      = new Button("Button 2");
@@ -55,10 +55,10 @@ public class HeatMapDemo extends Application {
             @Override public void handle(final ActionEvent EVENT) {
                 final Object SRC = EVENT.getSource();
                 if (SRC.equals(choiceBoxMapping)) {
-                    heatMap.setColorMapping(HeatMap.ColorMapping.valueOf(choiceBoxMapping.getSelectionModel().getSelectedItem().toString()));
+                    heatMap.setColorMapping(ColorMapping.valueOf(choiceBoxMapping.getSelectionModel().getSelectedItem().toString()));
                 } else if (SRC.equals(choiceBoxOpacityDistribution)) {
-                    heatMap.setOpacityDistribution(HeatMap.OpacityDistribution.valueOf(choiceBoxOpacityDistribution.getSelectionModel().getSelectedItem().toString()));
-                    heatMap.updateMonochromeMap(HeatMap.OpacityDistribution.valueOf(choiceBoxOpacityDistribution.getSelectionModel().getSelectedItem().toString()));
+                    heatMap.setOpacityDistribution(OpacityDistribution.valueOf(choiceBoxOpacityDistribution.getSelectionModel().getSelectedItem().toString()));
+                    heatMap.updateMonochromeMap(OpacityDistribution.valueOf(choiceBoxOpacityDistribution.getSelectionModel().getSelectedItem().toString()));
                 } else if (SRC.equals(checkBoxFadeColors)) {
                     heatMap.setFadeColors(checkBoxFadeColors.isSelected());
                 }
@@ -79,11 +79,11 @@ public class HeatMapDemo extends Application {
             }
         });
 
-        choiceBoxMapping.getItems().setAll(HeatMap.ColorMapping.values());
+        choiceBoxMapping.getItems().setAll(ColorMapping.values());
         choiceBoxMapping.getSelectionModel().select(heatMap.getColorMapping());
         choiceBoxMapping.addEventHandler(ActionEvent.ACTION, handler);
 
-        choiceBoxOpacityDistribution.getItems().setAll(HeatMap.OpacityDistribution.values());
+        choiceBoxOpacityDistribution.getItems().setAll(OpacityDistribution.values());
         choiceBoxOpacityDistribution.getSelectionModel().select(heatMap.getOpacityDistribution());
         choiceBoxOpacityDistribution.addEventHandler(ActionEvent.ACTION, handler);
 

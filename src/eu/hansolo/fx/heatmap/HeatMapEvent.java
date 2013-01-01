@@ -7,25 +7,25 @@ package eu.hansolo.fx.heatmap;
  * Time: 16:43
  */
 public class HeatMapEvent {
-    private double                  x;
-    private double                  y;
-    private double                  radius;
-    private HeatMap.OpacityDistribution opacityDistribution;
+    private double              x;
+    private double              y;
+    private double              radius;
+    private OpacityDistribution opacityDistribution;
 
 
     // ******************** Constructors **************************************
     public HeatMapEvent(final double X, final double Y) {
-        this(X, Y, 15.5, HeatMap.OpacityDistribution.EXPONENTIAL);
+        this(X, Y, 15.5, OpacityDistribution.CUSTOM);
     }
 
     public HeatMapEvent(final double X, final double Y, final double RADIUS) {
-        this(X, Y, RADIUS, HeatMap.OpacityDistribution.EXPONENTIAL);
+        this(X, Y, RADIUS, OpacityDistribution.CUSTOM);
     }
 
-    public HeatMapEvent(final double X, final double Y, final double RADIUS, final HeatMap.OpacityDistribution OPACITY_GRADIENT) {
-        x               = X;
-        y               = Y;
-        radius          = RADIUS;
+    public HeatMapEvent(final double X, final double Y, final double RADIUS, final OpacityDistribution OPACITY_GRADIENT) {
+        x                   = X;
+        y                   = Y;
+        radius              = RADIUS;
         opacityDistribution = OPACITY_GRADIENT;
     }
 
@@ -46,10 +46,10 @@ public class HeatMapEvent {
         radius = RADIUS;
     }
 
-    public HeatMap.OpacityDistribution getOpacityDistribution() {
+    public OpacityDistribution getOpacityDistribution() {
         return opacityDistribution;
     }
-    public void setOpacityDistribution(final HeatMap.OpacityDistribution OPACITY_GRADIENT) {
+    public void setOpacityDistribution(final OpacityDistribution OPACITY_GRADIENT) {
         opacityDistribution = OPACITY_GRADIENT;
     }
 

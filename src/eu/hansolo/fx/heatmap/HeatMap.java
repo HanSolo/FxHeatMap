@@ -1,6 +1,7 @@
 package eu.hansolo.fx.heatmap;
 
 import javafx.animation.Interpolator;
+import javafx.geometry.Point2D;
 import javafx.scene.SnapshotParametersBuilder;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -10,9 +11,7 @@ import javafx.scene.image.PixelReader;
 import javafx.scene.image.PixelWriter;
 import javafx.scene.image.WritableImage;
 import javafx.scene.paint.Color;
-import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
-import javafx.scene.paint.LinearGradientBuilder;
 import javafx.scene.paint.Stop;
 
 import java.util.ArrayList;
@@ -29,39 +28,6 @@ import java.util.Map;
  * Time: 05:46
  */
 public class HeatMap {
-    public static enum ColorMapping {
-        LIME_YELLOW_RED(new Stop(0.0, Color.LIME), new Stop(0.8, Color.YELLOW), new Stop(1.0, Color.RED)),
-        BLUE_CYAN_GREEN_YELLOW_RED(new Stop(0.0, Color.BLUE), new Stop(0.25, Color.CYAN), new Stop(0.5, Color.LIME), new Stop(0.75, Color.YELLOW), new Stop(1.0, Color.RED)),
-        INFRARED_1(new Stop(0.0, Color.BLACK), new Stop(0.1, Color.rgb(25, 20, 126)), new Stop(0.3, Color.rgb(192, 40, 150)), new Stop(0.5, Color.rgb(234, 82, 10)), new Stop(0.85, Color.rgb(255, 220, 25)), new Stop(1.0, Color.WHITE)),
-        INFRARED_2(new Stop(0.0, Color.BLACK), new Stop(0.1, Color.rgb(1, 20, 127)), new Stop(0.2, Color.rgb(1, 13, 100)), new Stop(0.4, Color.rgb(95, 172, 68)), new Stop(0.5, Color.rgb(210, 197, 12)), new Stop(0.65, Color.rgb(225, 53, 56)), new Stop(1.0, Color.WHITE)),
-        BLACK_WHITE(new Stop(0.0, Color.BLACK), new Stop(1.0, Color.WHITE)),
-        WHITE_BLACK(new Stop(0.0, Color.WHITE), new Stop(1.0, Color.BLACK));
-
-        public LinearGradient mapping;
-
-        ColorMapping(final Stop... STOPS) {
-            mapping = LinearGradientBuilder.create()
-                                           .startX(0).startY(0)
-                                           .endX(100).endY(0)
-                                           .proportional(false)
-                                           .cycleMethod(CycleMethod.NO_CYCLE)
-                                           .stops(STOPS)
-                                           .build();
-        }
-    }
-    public static enum OpacityDistribution {
-        EXPONENTIAL(0.90, 0.37, 0.14, 0.05, 0.02, 0.006, 0.002, 0.001, 0.0003, 0.0001, 0.0),
-        TAN_HYP(0.90, 0.53, 0.24, 0.10, 0.04, 0.01, 0.005, 0.002, 0.0007, 0.0002, 0.0),
-        CUSTOM(0.90, 0.56, 0.40, 0.28, 0.20, 0.14, 0.10, 0.07, 0.05, 0.03, 0.0),
-        LINEAR(0.90, 0.81, 0.72, 0.63, 0.54, 0.45, 0.36, 0.27, 0.18, 0.09, 0.0);
-
-        public double[] distribution;
-
-        private OpacityDistribution(final double... DISTRIBUTION) {
-            distribution = DISTRIBUTION;
-        }
-
-    }
     private List<HeatMapEvent>  eventList;
     private Map<String, Image>  eventImages;
     private ColorMapping        colorMapping;
@@ -101,6 +67,7 @@ public class HeatMap {
         eventImage          = createEventImage(radius, opacityDistribution);
         monochrome          = new Canvas(WIDTH, HEIGHT);
         ctx                 = monochrome.getGraphicsContext2D();
+        monochromeImage     = new WritableImage((int) WIDTH, (int) HEIGHT);
         heatMapView         = new ImageView(heatMap);
         heatMapView.setMouseTransparent(true);
         heatMapView.setOpacity(0.5);
@@ -115,6 +82,33 @@ public class HeatMap {
     public ImageView getHeatMapImage() {
         return heatMapView;
     }
+
+    /**
+     * Add a list of events and update the heatmap after all events
+     * have been added
+     * @param EVENTS
+     */
+    public void addEvents(final Point2D... EVENTS) {
+        for (Point2D event : EVENTS) {
+            eventList.add(new HeatMapEvent(event.getX(), event.getY(), radius, opacityDistribution));
+            ctx.drawImage(eventImage, event.getX() - radius, event.getY() - radius);
+        }
+        updateHeatMap();
+    }
+
+    /**
+     * Add a list of events and update the heatmap after all events
+     * have been added
+     * @param EVENTS
+     */
+    public void addEvents(final List<Point2D> EVENTS) {
+        for (Point2D event : EVENTS) {
+            eventList.add(new HeatMapEvent(event.getX(), event.getY(), radius, opacityDistribution));
+            ctx.drawImage(eventImage, event.getX() - radius, event.getY() - radius);
+        }
+        updateHeatMap();
+    }
+
 
     /**
      * Visualizes an event with the given radius and opacity gradient
@@ -294,18 +288,18 @@ public class HeatMap {
      * @param RADIUS
      * @return an image that contains a filled circle
      */
-    public Image createEventImage(final double RADIUS, final OpacityDistribution OPACITY_GRADIENT) {
+    public Image createEventImage(final double RADIUS, final OpacityDistribution OPACITY_DISTRIBUTION) {
         Double radius = RADIUS < 1 ? 1 : RADIUS;
-        if (eventImages.containsKey(OPACITY_GRADIENT.name() + radius)) {
-            return eventImages.get(OPACITY_GRADIENT.name() + radius);
+        if (eventImages.containsKey(OPACITY_DISTRIBUTION.name() + radius)) {
+            return eventImages.get(OPACITY_DISTRIBUTION.name() + radius);
         }
         Stop[] stops = new Stop[11];
         for (int i = 0 ; i < 11 ; i++) {
-            stops[i] = new Stop(i * 0.1, Color.rgb(255, 255, 255, OPACITY_GRADIENT.distribution[i]));
+            stops[i] = new Stop(i * 0.1, Color.rgb(255, 255, 255, OPACITY_DISTRIBUTION.distribution[i]));
         }
         int           size          = (int) (radius * 2);
         WritableImage raster        = new WritableImage(size, size);
-        PixelWriter pixelWriter   = raster.getPixelWriter();
+        PixelWriter   pixelWriter   = raster.getPixelWriter();
         double        maxDistFactor = 1 / radius;
         Color         pixelColor;
         for (int y = 0 ; y < size ; y++) {
@@ -323,7 +317,7 @@ public class HeatMap {
                 }
             }
         }
-        eventImages.put(OPACITY_GRADIENT.name() + radius, raster);
+        eventImages.put(OPACITY_DISTRIBUTION.name() + radius, raster);
         return raster;
     }
 
