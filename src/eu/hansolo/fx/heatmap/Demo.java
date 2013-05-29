@@ -4,6 +4,7 @@ import javafx.application.Application;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.event.EventHandler;
+import javafx.geometry.Dimension2D;
 import javafx.geometry.Point2D;
 import javafx.scene.Scene;
 import javafx.scene.input.MouseEvent;
@@ -58,6 +59,13 @@ public class Demo extends Application {
     }
 
     public static void main(String[] args) {
+        Dimension2D mapDimension = new Dimension2D(1500, 1577);
+        Point2D     upperLeft    = new Point2D(0, 9.8);
+        Point2D     lowerRight   = new Point2D(53.45, 10.2);
+        Point2D     location     = new Point2D(53.7, 9.95);
+
+        System.out.println(Helper.latLongToPixel(mapDimension, upperLeft, lowerRight, location));
+
         launch(args);
     }
 
