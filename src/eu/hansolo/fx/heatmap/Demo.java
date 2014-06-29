@@ -1,9 +1,6 @@
 package eu.hansolo.fx.heatmap;
 
 import javafx.application.Application;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
-import javafx.event.EventHandler;
 import javafx.geometry.Dimension2D;
 import javafx.geometry.Point2D;
 import javafx.scene.Scene;
@@ -72,27 +69,17 @@ public class Demo extends Application {
 
     // ******************** Methods *******************************************
     private void registerListeners() {
-        pane.addEventFilter(MouseEvent.MOUSE_PRESSED, new EventHandler<MouseEvent>() {
-            @Override public void handle(final MouseEvent EVENT) {
-                double x = EVENT.getX();
-                double y = EVENT.getY();
-                if (x < heatMap.getEventRadius()) x = heatMap.getEventRadius();
-                if (x > pane.getWidth() - heatMap.getEventRadius()) x = pane.getWidth() - heatMap.getEventRadius();
-                if (y < heatMap.getEventRadius()) y = heatMap.getEventRadius();
-                if (y > pane.getHeight() - heatMap.getEventRadius()) y = pane.getHeight() - heatMap.getEventRadius();
+        pane.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+            double x = event.getX();
+            double y = event.getY();
+            if (x < heatMap.getEventRadius()) x = heatMap.getEventRadius();
+            if (x > pane.getWidth() - heatMap.getEventRadius()) x = pane.getWidth() - heatMap.getEventRadius();
+            if (y < heatMap.getEventRadius()) y = heatMap.getEventRadius();
+            if (y > pane.getHeight() - heatMap.getEventRadius()) y = pane.getHeight() - heatMap.getEventRadius();
 
-                heatMap.addEvent(x, y);
-            }
+            heatMap.addEvent(x, y);
         });
-        pane.widthProperty().addListener(new ChangeListener<Number>() {
-            @Override public void changed(ObservableValue<? extends Number> ov, Number oldWidth, Number newWidth) {
-                heatMap.setSize(newWidth.doubleValue(), pane.getHeight());
-            }
-        });
-        pane.heightProperty().addListener(new ChangeListener<Number>() {
-            @Override public void changed(ObservableValue<? extends Number> ov, Number oldHeight, Number newHeight) {
-                heatMap.setSize(pane.getWidth(), newHeight.doubleValue());
-            }
-        });
+        pane.widthProperty().addListener((ov, oldWidth, newWidth) -> heatMap.setSize(newWidth.doubleValue(), pane.getHeight()));
+        pane.heightProperty().addListener((ov, oldHeight, newHeight) -> heatMap.setSize(pane.getWidth(), newHeight.doubleValue()));
     }
 }

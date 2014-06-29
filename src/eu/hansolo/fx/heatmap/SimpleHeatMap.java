@@ -2,7 +2,7 @@ package eu.hansolo.fx.heatmap;
 
 import javafx.animation.Interpolator;
 import javafx.geometry.Point2D;
-import javafx.scene.SnapshotParametersBuilder;
+import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
@@ -14,7 +14,6 @@ import javafx.scene.paint.Color;
 import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.Stop;
 
-import java.util.LinkedList;
 import java.util.List;
 
 
@@ -25,6 +24,7 @@ import java.util.List;
  * Time: 07:49
  */
 public class SimpleHeatMap {
+    private static final SnapshotParameters SNAPSHOT_PARAMETERS = new SnapshotParameters();
     private ColorMapping        colorMapping;
     private LinearGradient      mappingGradient;
     private boolean             fadeColors;
@@ -42,16 +42,14 @@ public class SimpleHeatMap {
     public SimpleHeatMap(final double WIDTH, final double HEIGHT) {
         this(WIDTH, HEIGHT, ColorMapping.LIME_YELLOW_RED);
     }
-
     public SimpleHeatMap(final double WIDTH, final double HEIGHT, ColorMapping COLOR_MAPPING) {
         this(WIDTH, HEIGHT, COLOR_MAPPING, 15.5);
     }
-
     public SimpleHeatMap(final double WIDTH, final double HEIGHT, ColorMapping COLOR_MAPPING, final double EVENT_RADIUS) {
         this(WIDTH, HEIGHT, COLOR_MAPPING, EVENT_RADIUS, true);
     }
-
     public SimpleHeatMap(final double WIDTH, final double HEIGHT, ColorMapping COLOR_MAPPING, final double EVENT_RADIUS, final boolean FADE_COLORS) {
+        SNAPSHOT_PARAMETERS.setFill(Color.TRANSPARENT);
         colorMapping        = COLOR_MAPPING;
         mappingGradient     = colorMapping.mapping;
         fadeColors          = FADE_COLORS;
@@ -76,7 +74,6 @@ public class SimpleHeatMap {
         ctx.drawImage(EVENT_IMAGE, X - OFFSET_X, Y - OFFSET_Y);
         updateHeatMap();
     }
-
     public void addEvent(final double X, final double Y) {
         addEvent(X, Y, eventImage, radius, radius);
     }
@@ -87,7 +84,6 @@ public class SimpleHeatMap {
         }
         updateHeatMap();
     }
-
     public void addEvents(final List<Point2D> EVENTS) {
         for (Point2D event : EVENTS) {
             ctx.drawImage(eventImage, event.getX() - radius, event.getY() - radius);
@@ -104,7 +100,6 @@ public class SimpleHeatMap {
     public double getHeatMapOpacity() {
         return heatMapView.getOpacity();
     }
-
     public void setHeatMapOpacity(final double HEAT_MAP_OPACITY) {
         double opacity = HEAT_MAP_OPACITY < 0 ? 0 : (HEAT_MAP_OPACITY > 1 ? 1 : HEAT_MAP_OPACITY);
         heatMapView.setOpacity(opacity);
@@ -113,7 +108,6 @@ public class SimpleHeatMap {
     public ColorMapping getColorMapping() {
         return colorMapping;
     }
-
     public void setColorMapping(final ColorMapping COLOR_MAPPING) {
         colorMapping    = COLOR_MAPPING;
         mappingGradient = COLOR_MAPPING.mapping;
@@ -123,7 +117,6 @@ public class SimpleHeatMap {
     public boolean isFadeColors() {
         return fadeColors;
     }
-
     public void setFadeColors(final boolean FADE_COLORS) {
         fadeColors = FADE_COLORS;
         updateHeatMap();
@@ -132,7 +125,6 @@ public class SimpleHeatMap {
     public double getEventRadius() {
         return radius;
     }
-
     public void setEventRadius(final double RADIUS) {
         radius     = RADIUS < 1 ? 1 : RADIUS;
         eventImage = createEventImage(radius, opacityDistribution);
@@ -141,7 +133,6 @@ public class SimpleHeatMap {
     public OpacityDistribution getOpacityDistribution() {
         return opacityDistribution;
     }
-
     public void setOpacityDistribution(final OpacityDistribution OPACITY_DISTRIBUTION) {
         opacityDistribution = OPACITY_DISTRIBUTION;
         eventImage          = createEventImage(radius, opacityDistribution);
@@ -186,7 +177,7 @@ public class SimpleHeatMap {
     }
 
     private void updateHeatMap() {
-        monochromeCanvas.snapshot(SnapshotParametersBuilder.create().fill(Color.TRANSPARENT).build(), monochromeImage);
+        monochromeCanvas.snapshot(SNAPSHOT_PARAMETERS, monochromeImage);
         heatMap = new WritableImage(monochromeImage.widthProperty().intValue(), monochromeImage.heightProperty().intValue());
         PixelWriter pixelWriter = heatMap.getPixelWriter();
         PixelReader pixelReader = monochromeImage.getPixelReader();
@@ -196,13 +187,13 @@ public class SimpleHeatMap {
         for (int y = 0 ; y < monochromeImage.getHeight() ; y++) {
             for (int x = 0 ; x < monochromeImage.getWidth(); x++) {
                 colorFromMonoChromeImage = pixelReader.getColor(x, y);
-                //double brightness = computeLuminance(colorFromMonoChromeImage.getRed(), colorFromMonoChromeImage.getGreen(), colorFromMonoChromeImage.getBlue());
-                //double brightness = computeBrightness(colorFromMonoChromeImage.getRed(), colorFromMonoChromeImage.getGreen(), colorFromMonoChromeImage.getBlue());
+                //brightness = computeLuminance(colorFromMonoChromeImage.getRed(), colorFromMonoChromeImage.getGreen(), colorFromMonoChromeImage.getBlue());
+                //brightness = computeBrightness(colorFromMonoChromeImage.getRed(), colorFromMonoChromeImage.getGreen(), colorFromMonoChromeImage.getBlue());
                 brightness = computeBrightnessFast(colorFromMonoChromeImage.getRed(), colorFromMonoChromeImage.getGreen(), colorFromMonoChromeImage.getBlue());
                 mappedColor = getColorAt(mappingGradient, brightness);
                 if (fadeColors) {
-                    pixelWriter.setColor(x, y, Color.color(mappedColor.getRed(), mappedColor.getGreen(), mappedColor.getBlue(), brightness));
-                    //pixelWriter.setColor(x, y, Color.color(mappedColor.getRed(), mappedColor.getGreen(), mappedColor.getBlue(), colorFromMonoChromeImage.getOpacity()));
+                    //pixelWriter.setColor(x, y, Color.color(mappedColor.getRed(), mappedColor.getGreen(), mappedColor.getBlue(), brightness));
+                    pixelWriter.setColor(x, y, Color.color(mappedColor.getRed(), mappedColor.getGreen(), mappedColor.getBlue(), colorFromMonoChromeImage.getOpacity()));
                 } else {
                     pixelWriter.setColor(x, y, mappedColor);
                 }
@@ -233,34 +224,21 @@ public class SimpleHeatMap {
 
     private Color getColorAt(final LinearGradient GRADIENT, final double FRACTION) {
         double fraction = FRACTION < 0f ? 0f : (FRACTION > 1 ? 1 : FRACTION);
-        double lowerLimit = 0;
-        int    lowerIndex = 0;
-        double upperLimit = 1;
-        int    upperIndex = 1;
-        int    index = 0;
-        List<Stop> stops     = GRADIENT.getStops();
-        List<Color>  colors    = new LinkedList<>();
-        List<Double> fractions = new LinkedList<>();
+        List<Stop> stops = GRADIENT.getStops();
+        Stop lowerLimit  = new Stop(0.0, stops.get(0).getColor());
+        Stop upperLimit  = new Stop(1.0, stops.get(stops.size() - 1).getColor());
+
         for (Stop stop : stops) {
-            fractions.add(stop.getOffset());
-            colors.add(stop.getColor());
+            if (Double.compare(stop.getOffset(), fraction) < 0) {
+                lowerLimit = new Stop(stop.getOffset(), stop.getColor());
+            } else if (Double.compare(stop.getOffset(), fraction) == 0) {
+                return stop.getColor();
+            } else {
+                upperLimit = new Stop(stop.getOffset(), stop.getColor());
+            }
         }
-        for (double currentFraction : fractions) {
-            if (Double.compare(currentFraction, fraction) < 0) {
-                lowerLimit = currentFraction;
-                lowerIndex = index;
-            }
-            if (Double.compare(currentFraction, fraction) == 0) {
-                return colors.get(index);
-            }
-            if (Double.compare(currentFraction, fraction) > 0) {
-                upperLimit = currentFraction;
-                upperIndex = index;
-                break;
-            }
-            index++;
-        }
-        double interpolationFraction = (fraction - lowerLimit) / (upperLimit - lowerLimit);
-        return (Color) Interpolator.LINEAR.interpolate(colors.get(lowerIndex), colors.get(upperIndex), interpolationFraction);
+
+        double interpolationFraction = (fraction - lowerLimit.getOffset()) / (upperLimit.getOffset() - lowerLimit.getOffset());
+        return (Color) Interpolator.LINEAR.interpolate(lowerLimit.getColor(), upperLimit.getColor(), interpolationFraction);
     }
 }

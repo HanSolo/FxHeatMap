@@ -18,13 +18,12 @@ import javafx.stage.Stage;
 
 
 /**
- * Created by
  * User: hansolo
- * Date: 27.12.12
- * Time: 05:58
+ * Date: 29.06.14
+ * Time: 13:51
  */
-public class HeatMapDemo extends Application {
-    private HeatMap                        heatMap;
+public class SimpleHeatMapDemo extends Application {    
+    private SimpleHeatMap                  heatMap;
     private StackPane                      pane;
     private Slider                         sliderOpacity;
     private Button                         button1;
@@ -41,7 +40,7 @@ public class HeatMapDemo extends Application {
     // ******************** Initialization ************************************
     @Override public void init() {
         pane                         = new StackPane();
-        heatMap                      = new HeatMap(400, 400, ColorMapping.BLUE_CYAN_GREEN_YELLOW_RED);        
+        heatMap                      = new SimpleHeatMap(400, 400, ColorMapping.BLACK_WHITE);
         sliderOpacity                = new Slider();
         button1                      = new Button("Button 1");
         button2                      = new Button("Button 2");
@@ -56,8 +55,7 @@ public class HeatMapDemo extends Application {
             if (SRC.equals(choiceBoxMapping)) {
                 heatMap.setColorMapping(ColorMapping.valueOf(choiceBoxMapping.getSelectionModel().getSelectedItem().toString()));
             } else if (SRC.equals(choiceBoxOpacityDistribution)) {
-                heatMap.setOpacityDistribution(OpacityDistribution.valueOf(choiceBoxOpacityDistribution.getSelectionModel().getSelectedItem().toString()));
-                heatMap.updateMonochromeMap(OpacityDistribution.valueOf(choiceBoxOpacityDistribution.getSelectionModel().getSelectedItem().toString()));                
+                heatMap.setOpacityDistribution(OpacityDistribution.valueOf(choiceBoxOpacityDistribution.getSelectionModel().getSelectedItem().toString()));              
             } else if (SRC.equals(checkBoxFadeColors)) {
                 heatMap.setFadeColors(checkBoxFadeColors.isSelected());
             } else if (SRC.equals(clearHeatMap)) {
@@ -75,7 +73,7 @@ public class HeatMapDemo extends Application {
         sliderOpacity.setValue(heatMap.getHeatMapOpacity());
         sliderOpacity.valueChangingProperty().addListener((observableValue, aBoolean, aBoolean2) -> heatMap.setHeatMapOpacity(sliderOpacity.getValue()));
 
-        choiceBoxMapping.getItems().setAll(ColorMapping.values());
+        choiceBoxMapping.getItems().setAll(ColorMapping.BLACK_WHITE, ColorMapping.WHITE_BLACK);
         choiceBoxMapping.getSelectionModel().select(heatMap.getColorMapping());
         choiceBoxMapping.addEventHandler(ActionEvent.ACTION, handler);
 
@@ -109,7 +107,7 @@ public class HeatMapDemo extends Application {
         pane.getChildren().setAll(layout, heatMap.getHeatMapImage());
         Scene scene = new Scene(pane, 400, 400, Color.GRAY);
 
-        stage.setTitle("JavaFX HeatMap Demo");
+        stage.setTitle("JavaFX SimpleHeatMap Demo");
         stage.setScene(scene);
         stage.show();
     }

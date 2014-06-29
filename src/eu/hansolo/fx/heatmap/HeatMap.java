@@ -1,8 +1,9 @@
 package eu.hansolo.fx.heatmap;
 
 import javafx.animation.Interpolator;
+import javafx.beans.property.DoubleProperty;
 import javafx.geometry.Point2D;
-import javafx.scene.SnapshotParametersBuilder;
+import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
@@ -16,7 +17,6 @@ import javafx.scene.paint.Stop;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +28,7 @@ import java.util.Map;
  * Time: 05:46
  */
 public class HeatMap {
+    private static final SnapshotParameters SNAPSHOT_PARAMETERS = new SnapshotParameters();
     private List<HeatMapEvent>  eventList;
     private Map<String, Image>  eventImages;
     private ColorMapping        colorMapping;
@@ -41,22 +42,21 @@ public class HeatMap {
     private WritableImage       monochromeImage;
     private WritableImage       heatMap;
     private ImageView           heatMapView;
+    private DoubleProperty      opacity;
 
 
     // ******************** Constructors **************************************
     public HeatMap(final double WIDTH, final double HEIGHT) {
         this(WIDTH, HEIGHT, ColorMapping.LIME_YELLOW_RED);
     }
-
     public HeatMap(final double WIDTH, final double HEIGHT, ColorMapping COLOR_MAPPING) {
         this(WIDTH, HEIGHT, COLOR_MAPPING, 15.5);
     }
-
     public HeatMap(final double WIDTH, final double HEIGHT, ColorMapping COLOR_MAPPING, final double EVENT_RADIUS) {
         this(WIDTH, HEIGHT, COLOR_MAPPING, EVENT_RADIUS, true);
     }
-
     public HeatMap(final double WIDTH, final double HEIGHT, ColorMapping COLOR_MAPPING, final double EVENT_RADIUS, final boolean FADE_COLORS) {
+        SNAPSHOT_PARAMETERS.setFill(Color.TRANSPARENT);
         eventList           = new ArrayList<>();
         eventImages         = new HashMap<>();
         colorMapping        = COLOR_MAPPING;
@@ -70,7 +70,7 @@ public class HeatMap {
         monochromeImage     = new WritableImage((int) WIDTH, (int) HEIGHT);
         heatMapView         = new ImageView(heatMap);
         heatMapView.setMouseTransparent(true);
-        heatMapView.setOpacity(0.5);
+        heatMapView.setOpacity(0.5);                
     }
 
 
@@ -88,11 +88,11 @@ public class HeatMap {
      * have been added
      * @param EVENTS
      */
-    public void addEvents(final Point2D... EVENTS) {
+    public void addEvents(final Point2D... EVENTS) {        
         for (Point2D event : EVENTS) {
             eventList.add(new HeatMapEvent(event.getX(), event.getY(), radius, opacityDistribution));
             ctx.drawImage(eventImage, event.getX() - radius, event.getY() - radius);
-        }
+        }        
         updateHeatMap();
     }
 
@@ -102,13 +102,12 @@ public class HeatMap {
      * @param EVENTS
      */
     public void addEvents(final List<Point2D> EVENTS) {
-        for (Point2D event : EVENTS) {
+        EVENTS.forEach(event -> {
             eventList.add(new HeatMapEvent(event.getX(), event.getY(), radius, opacityDistribution));
             ctx.drawImage(eventImage, event.getX() - radius, event.getY() - radius);
-        }
+        });        
         updateHeatMap();
     }
-
 
     /**
      * Visualizes an event with the given radius and opacity gradient
@@ -239,7 +238,7 @@ public class HeatMap {
      * @param RADIUS
      */
     public void setEventRadius(final double RADIUS) {
-        radius     = RADIUS < 1 ? 1 : RADIUS;
+        radius = RADIUS < 1 ? 1 : RADIUS;
         eventImage = createEventImage(radius, opacityDistribution);
     }
 
@@ -294,23 +293,24 @@ public class HeatMap {
             return eventImages.get(OPACITY_DISTRIBUTION.name() + radius);
         }
         Stop[] stops = new Stop[11];
-        for (int i = 0 ; i < 11 ; i++) {
+        for (int i = 0; i < 11; i++) {
             stops[i] = new Stop(i * 0.1, Color.rgb(255, 255, 255, OPACITY_DISTRIBUTION.distribution[i]));
         }
-        int           size          = (int) (radius * 2);
+
+        int size = (int) (radius * 2);
         WritableImage raster        = new WritableImage(size, size);
         PixelWriter   pixelWriter   = raster.getPixelWriter();
         double        maxDistFactor = 1 / radius;
-        Color         pixelColor;
-        for (int y = 0 ; y < size ; y++) {
-            for (int x = 0 ; x < size ; x++) {
-                double distanceX = radius - x;
-                double distanceY = radius - y;
-                double distance = Math.sqrt((distanceX * distanceX) + (distanceY * distanceY));
+        Color pixelColor;
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                double deltaX   = radius - x;
+                double deltaY   = radius - y;
+                double distance = Math.sqrt((deltaX * deltaX) + (deltaY * deltaY));
                 double fraction = maxDistFactor * distance;
-                for (int i = 0 ; i < 10 ; i++) {
+                for (int i = 0; i < 10; i++) {
                     if (Double.compare(fraction, stops[i].getOffset()) >= 0 && Double.compare(fraction, stops[i + 1].getOffset()) <= 0) {
-                        pixelColor  = (Color) Interpolator.LINEAR.interpolate(stops[i].getColor(), stops[i + 1].getColor(), (fraction - stops[i].getOffset()) / 0.1);
+                        pixelColor = (Color) Interpolator.LINEAR.interpolate(stops[i].getColor(), stops[i + 1].getColor(), (fraction - stops[i].getOffset()) / 0.1);
                         pixelWriter.setColor(x, y, pixelColor);
                         break;
                     }
@@ -328,10 +328,10 @@ public class HeatMap {
      */
     public void updateMonochromeMap(final OpacityDistribution OPACITY_GRADIENT) {
         ctx.clearRect(0, 0, monochrome.getWidth(), monochrome.getHeight());
-        for (HeatMapEvent event : eventList) {
+        eventList.forEach(event -> {
             event.setOpacityDistribution(OPACITY_GRADIENT);
             ctx.drawImage(createEventImage(event.getRadius(), event.getOpacityDistribution()), event.getX() - event.getRadius() * 0.5, event.getY() - event.getRadius() * 0.5);
-        }
+        });
         updateHeatMap();
     }
 
@@ -341,23 +341,22 @@ public class HeatMap {
      * mapping.
      */
     private void updateHeatMap() {
-        monochrome.snapshot(SnapshotParametersBuilder.create().fill(Color.TRANSPARENT).build(), monochromeImage);
+        monochrome.snapshot(SNAPSHOT_PARAMETERS, monochromeImage);
         heatMap = new WritableImage(monochromeImage.widthProperty().intValue(), monochromeImage.heightProperty().intValue());
+        Color       colorFromMonoChromeImage;
+        double      brightness;
+        Color       mappedColor;
         PixelWriter pixelWriter = heatMap.getPixelWriter();
-        PixelReader pixelReader = monochromeImage.getPixelReader();
-        Color colorFromMonoChromeImage;
-        double brightness;
-        Color mappedColor;
-        for (int y = 0 ; y < monochromeImage.getHeight() ; y++) {
-            for (int x = 0 ; x < monochromeImage.getWidth(); x++) {
+        PixelReader pixelReader = monochromeImage.getPixelReader();        
+        int width  = (int) monochromeImage.getWidth();
+        int height = (int) monochromeImage.getHeight();
+        for (int y = 0 ; y < height ; y++) {
+            for (int x = 0 ; x < width ; x++) {
                 colorFromMonoChromeImage = pixelReader.getColor(x, y);
-                //double brightness = computeLuminance(colorFromMonoChromeImage.getRed(), colorFromMonoChromeImage.getGreen(), colorFromMonoChromeImage.getBlue());
-                //double brightness = computeBrightness(colorFromMonoChromeImage.getRed(), colorFromMonoChromeImage.getGreen(), colorFromMonoChromeImage.getBlue());
-                brightness = computeBrightnessFast(colorFromMonoChromeImage.getRed(), colorFromMonoChromeImage.getGreen(), colorFromMonoChromeImage.getBlue());
+                brightness = colorFromMonoChromeImage.getOpacity();
                 mappedColor = getColorAt(mappingGradient, brightness);
                 if (fadeColors) {
                     pixelWriter.setColor(x, y, Color.color(mappedColor.getRed(), mappedColor.getGreen(), mappedColor.getBlue(), brightness));
-                    //pixelWriter.setColor(x, y, Color.color(mappedColor.getRed(), mappedColor.getGreen(), mappedColor.getBlue(), colorFromMonoChromeImage.getOpacity()));
                 } else {
                     pixelWriter.setColor(x, y, mappedColor);
                 }
@@ -367,96 +366,30 @@ public class HeatMap {
     }
 
     /**
-     * Photometric/digital ITU-R
-     * @param RED
-     * @param GREEN
-     * @param BLUE
-     * @return Photometric/digital ITU-R (0...1)
-     */
-    private double computeBrightness(final double RED, final double GREEN, final double BLUE) {
-        return  (0.2126 * RED + 0.7152 * GREEN + 0.0722 * BLUE);
-    }
-
-    /**
-     * Faster approximation of Photometric/digital ITU-R
-     * @param RED
-     * @param GREEN
-     * @param BLUE
-     * @return fast approximation of photometric/digital ITU-R (0...1)
-     */
-    private double computeBrightnessFast(final double RED, final double GREEN, final double BLUE) {
-        return ((RED + RED + BLUE + GREEN + GREEN + GREEN) / 6.0);
-    }
-
-    /**
-     * Digital CCIR601 (more weight to red and blue)
-     * @param RED
-     * @param GREEN
-     * @param BLUE
-     * @return Digital CCIR601 (0...1)
-     */
-    private double computePerceivedBrightness(final double RED, final double GREEN, final double BLUE) {
-        return ((0.299 * RED) + (0.587 * GREEN) + (0.114 * BLUE));
-    }
-
-    /**
-     * Faster approximation of Digital CCIR601
-     * @param RED
-     * @param GREEN
-     * @param BLUE
-     * @return fast approximation of Digital CCIR601 (0...1)
-     */
-    private double computePerceivedBrightnessFast(final double RED, final double GREEN, final double BLUE) {
-        return ((RED + RED + RED  + BLUE + GREEN + GREEN + GREEN + GREEN) * 0.5);
-    }
-
-    /**
-     * Luminance
-     * @param RED
-     * @param GREEN
-     * @param BLUE
-     * @return luminance (0...1)
-     */
-    private double computeLuminance(final double RED, final double GREEN, final double BLUE) {
-        return Math.sqrt(0.241 * (RED * RED) + 0.691 * (GREEN * GREEN) + 0.068 * (BLUE * BLUE));
-    }
-
-    /**
      * Calculates the color in a linear gradient at the given fraction
      * @param GRADIENT
      * @param FRACTION
      * @return the color in a linear gradient at the given fraction
      */
     private Color getColorAt(final LinearGradient GRADIENT, final double FRACTION) {
-        double fraction = FRACTION < 0f ? 0f : (FRACTION > 1 ? 1 : FRACTION);
-        double lowerLimit = 0;
-        int    lowerIndex = 0;
-        double upperLimit = 1;
-        int    upperIndex = 1;
-        int    index = 0;
         List<Stop> stops     = GRADIENT.getStops();
-        List<Color>  colors    = new LinkedList<>();
-        List<Double> fractions = new LinkedList<>();
+        double     fraction  = FRACTION < 0f ? 0f : (FRACTION > 1 ? 1 : FRACTION);
+        Stop       lowerStop = new Stop(0.0, stops.get(0).getColor());
+        Stop       upperStop = new Stop(1.0, stops.get(stops.size() - 1).getColor());
+                
         for (Stop stop : stops) {
-            fractions.add(stop.getOffset());
-            colors.add(stop.getColor());
-        }
-        for (double currentFraction : fractions) {
-            if (Double.compare(currentFraction, fraction) < 0) {
-                lowerLimit = currentFraction;
-                lowerIndex = index;
-            }
+            double currentFraction = stop.getOffset();
             if (Double.compare(currentFraction, fraction) == 0) {
-                return colors.get(index);
-            }
-            if (Double.compare(currentFraction, fraction) > 0) {
-                upperLimit = currentFraction;
-                upperIndex = index;
+                return stop.getColor();
+            } else if (Double.compare(currentFraction, fraction) < 0) {
+                lowerStop = new Stop(currentFraction, stop.getColor());
+            } else {
+                upperStop = new Stop(currentFraction, stop.getColor());
                 break;
             }
-            index++;
         }
-        double interpolationFraction = (fraction - lowerLimit) / (upperLimit - lowerLimit);
-        return (Color) Interpolator.LINEAR.interpolate(colors.get(lowerIndex), colors.get(upperIndex), interpolationFraction);
+
+        double interpolationFraction = (fraction - lowerStop.getOffset()) / (upperStop.getOffset() - lowerStop.getOffset());
+        return (Color) Interpolator.LINEAR.interpolate(lowerStop.getColor(), upperStop.getColor(), interpolationFraction);
     }
 }
