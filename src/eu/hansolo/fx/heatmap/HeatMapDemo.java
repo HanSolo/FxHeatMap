@@ -41,7 +41,7 @@ public class HeatMapDemo extends Application {
     // ******************** Initialization ************************************
     @Override public void init() {
         pane                         = new StackPane();
-        heatMap                      = new HeatMap(400, 400, ColorMapping.BLUE_CYAN_GREEN_YELLOW_RED);        
+        heatMap                      = new HeatMap(400, 400, ColorMapping.BLUE_CYAN_GREEN_YELLOW_RED);
         sliderOpacity                = new Slider();
         button1                      = new Button("Button 1");
         button2                      = new Button("Button 2");
@@ -57,7 +57,7 @@ public class HeatMapDemo extends Application {
                 heatMap.setColorMapping(ColorMapping.valueOf(choiceBoxMapping.getSelectionModel().getSelectedItem().toString()));
             } else if (SRC.equals(choiceBoxOpacityDistribution)) {
                 heatMap.setOpacityDistribution(OpacityDistribution.valueOf(choiceBoxOpacityDistribution.getSelectionModel().getSelectedItem().toString()));
-                heatMap.updateMonochromeMap(OpacityDistribution.valueOf(choiceBoxOpacityDistribution.getSelectionModel().getSelectedItem().toString()));                
+                heatMap.updateMonochromeMap(OpacityDistribution.valueOf(choiceBoxOpacityDistribution.getSelectionModel().getSelectedItem().toString()));
             } else if (SRC.equals(checkBoxFadeColors)) {
                 heatMap.setFadeColors(checkBoxFadeColors.isSelected());
             } else if (SRC.equals(clearHeatMap)) {
@@ -72,8 +72,8 @@ public class HeatMapDemo extends Application {
     @Override public void start(Stage stage) {
         sliderOpacity.setMin(0);
         sliderOpacity.setMax(1);
-        sliderOpacity.setValue(heatMap.getHeatMapOpacity());
-        sliderOpacity.valueChangingProperty().addListener((observableValue, aBoolean, aBoolean2) -> heatMap.setHeatMapOpacity(sliderOpacity.getValue()));
+        sliderOpacity.setValue(heatMap.getOpacity());
+        sliderOpacity.valueChangingProperty().addListener((observableValue, aBoolean, aBoolean2) -> heatMap.setOpacity(sliderOpacity.getValue()));
 
         choiceBoxMapping.getItems().setAll(ColorMapping.values());
         choiceBoxMapping.getSelectionModel().select(heatMap.getColorMapping());
@@ -106,7 +106,7 @@ public class HeatMapDemo extends Application {
                                     choiceBoxOpacityDistribution,
                                     clearHeatMap);
 
-        pane.getChildren().setAll(layout, heatMap.getHeatMapImage());
+        pane.getChildren().setAll(layout, heatMap);
         Scene scene = new Scene(pane, 400, 400, Color.GRAY);
 
         stage.setTitle("JavaFX HeatMap Demo");

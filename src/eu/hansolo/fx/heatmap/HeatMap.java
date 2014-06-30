@@ -1,7 +1,8 @@
 package eu.hansolo.fx.heatmap;
 
 import javafx.animation.Interpolator;
-import javafx.beans.property.DoubleProperty;
+import javafx.application.Platform;
+import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Point2D;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
@@ -15,6 +16,9 @@ import javafx.scene.paint.Color;
 import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.Stop;
 
+import javax.imageio.ImageIO;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,7 +31,7 @@ import java.util.Map;
  * Date: 27.12.12
  * Time: 05:46
  */
-public class HeatMap {
+public class HeatMap extends ImageView {
     private static final SnapshotParameters SNAPSHOT_PARAMETERS = new SnapshotParameters();
     private List<HeatMapEvent>  eventList;
     private Map<String, Image>  eventImages;
@@ -41,11 +45,12 @@ public class HeatMap {
     private GraphicsContext     ctx;
     private WritableImage       monochromeImage;
     private WritableImage       heatMap;
-    private ImageView           heatMapView;
-    private DoubleProperty      opacity;
 
 
     // ******************** Constructors **************************************
+    public HeatMap() {
+        this(100, 100);
+    }
     public HeatMap(final double WIDTH, final double HEIGHT) {
         this(WIDTH, HEIGHT, ColorMapping.LIME_YELLOW_RED);
     }
@@ -53,9 +58,10 @@ public class HeatMap {
         this(WIDTH, HEIGHT, COLOR_MAPPING, 15.5);
     }
     public HeatMap(final double WIDTH, final double HEIGHT, ColorMapping COLOR_MAPPING, final double EVENT_RADIUS) {
-        this(WIDTH, HEIGHT, COLOR_MAPPING, EVENT_RADIUS, true);
+        this(WIDTH, HEIGHT, COLOR_MAPPING, EVENT_RADIUS, true, 0.5, OpacityDistribution.CUSTOM);
     }
-    public HeatMap(final double WIDTH, final double HEIGHT, ColorMapping COLOR_MAPPING, final double EVENT_RADIUS, final boolean FADE_COLORS) {
+    public HeatMap(final double WIDTH, final double HEIGHT, ColorMapping COLOR_MAPPING, final double EVENT_RADIUS, final boolean FADE_COLORS, final double HEAT_MAP_OPACITY, final OpacityDistribution OPACITY_DISTRIBUTION) {
+        super();
         SNAPSHOT_PARAMETERS.setFill(Color.TRANSPARENT);
         eventList           = new ArrayList<>();
         eventImages         = new HashMap<>();
@@ -63,36 +69,34 @@ public class HeatMap {
         mappingGradient     = colorMapping.mapping;
         fadeColors          = FADE_COLORS;
         radius              = EVENT_RADIUS;
-        opacityDistribution = OpacityDistribution.CUSTOM;
+        opacityDistribution = OPACITY_DISTRIBUTION;
         eventImage          = createEventImage(radius, opacityDistribution);
         monochrome          = new Canvas(WIDTH, HEIGHT);
         ctx                 = monochrome.getGraphicsContext2D();
         monochromeImage     = new WritableImage((int) WIDTH, (int) HEIGHT);
-        heatMapView         = new ImageView(heatMap);
-        heatMapView.setMouseTransparent(true);
-        heatMapView.setOpacity(0.5);                
+        setImage(heatMap);
+        setMouseTransparent(true);
+        setOpacity(HEAT_MAP_OPACITY);
+        registerListeners();
+    }
+
+    public void registerListeners() {
+        fitWidthProperty().addListener(observable -> resize());
+        fitHeightProperty().addListener(observable -> resize());
     }
 
 
-    // ******************** Methods *******************************************
-    /**
-     * Returns the image view that contains the heat map
-     * @return the image view that contains the heat map
-     */
-    public ImageView getHeatMapImage() {
-        return heatMapView;
-    }
-
+    // ******************** Methods *******************************************              
     /**
      * Add a list of events and update the heatmap after all events
      * have been added
      * @param EVENTS
      */
-    public void addEvents(final Point2D... EVENTS) {        
+    public void addEvents(final Point2D... EVENTS) {
         for (Point2D event : EVENTS) {
             eventList.add(new HeatMapEvent(event.getX(), event.getY(), radius, opacityDistribution));
             ctx.drawImage(eventImage, event.getX() - radius, event.getY() - radius);
-        }        
+        }
         updateHeatMap();
     }
 
@@ -105,7 +109,7 @@ public class HeatMap {
         EVENTS.forEach(event -> {
             eventList.add(new HeatMapEvent(event.getX(), event.getY(), radius, opacityDistribution));
             ctx.drawImage(eventImage, event.getX() - radius, event.getY() - radius);
-        });        
+        });
         updateHeatMap();
     }
 
@@ -157,24 +161,6 @@ public class HeatMap {
         ctx.clearRect(0, 0, monochrome.getWidth(), monochrome.getHeight());
         monochromeImage = new WritableImage(monochrome.widthProperty().intValue(), monochrome.heightProperty().intValue());
         updateHeatMap();
-    }
-
-    /**
-     * Returns the current opacity of the heat map image view
-     * @return the current opacity of the heat map image view
-     */
-    public double getHeatMapOpacity() {
-        return heatMapView.getOpacity();
-    }
-
-    /**
-     * In principle this method is not needed because you could adjust the opacity
-     * of the heat map directly (it's a simple image view)
-     * @param HEAT_MAP_OPACITY
-     */
-    public void setHeatMapOpacity(final double HEAT_MAP_OPACITY) {
-        double opacity = HEAT_MAP_OPACITY < 0 ? 0 : (HEAT_MAP_OPACITY > 1 ? 1 : HEAT_MAP_OPACITY);
-        heatMapView.setOpacity(opacity);
     }
 
     /**
@@ -273,12 +259,25 @@ public class HeatMap {
      * @param HEIGHT
      */
     public void setSize(final double WIDTH, final double HEIGHT) {
-        monochrome.setWidth(WIDTH);
-        monochrome.setHeight(HEIGHT);
-        if (WIDTH > 0 && HEIGHT > 0) {
-            monochromeImage = new WritableImage(monochrome.widthProperty().intValue(), monochrome.heightProperty().intValue());
-            updateHeatMap();
-        }
+        setFitWidth(WIDTH);
+        setFitHeight(HEIGHT);
+    }
+
+    /**
+     * Saves the current heat map image as png with the given name to the desktop folder of the current user
+     * @param FILE_NAME
+     */
+    public void saveAsPng(final String FILE_NAME) {
+        new Thread(() ->
+                       Platform.runLater(() -> {
+                           final String TARGET = System.getProperty("user.home") + "/Desktop/" + FILE_NAME + ".png";
+                           try {
+                               ImageIO.write(SwingFXUtils.fromFXImage(snapshot(SNAPSHOT_PARAMETERS, null), null), "png", new File(TARGET));
+                           } catch (IOException exception) {
+                               // handle exception here
+                           }
+                       })
+        ).start();
     }
 
     /**
@@ -347,7 +346,7 @@ public class HeatMap {
         double      brightness;
         Color       mappedColor;
         PixelWriter pixelWriter = heatMap.getPixelWriter();
-        PixelReader pixelReader = monochromeImage.getPixelReader();        
+        PixelReader pixelReader = monochromeImage.getPixelReader();
         int width  = (int) monochromeImage.getWidth();
         int height = (int) monochromeImage.getHeight();
         for (int y = 0 ; y < height ; y++) {
@@ -362,7 +361,7 @@ public class HeatMap {
                 }
             }
         }
-        heatMapView.setImage(heatMap);
+        setImage(heatMap);
     }
 
     /**
@@ -376,7 +375,7 @@ public class HeatMap {
         double     fraction  = FRACTION < 0f ? 0f : (FRACTION > 1 ? 1 : FRACTION);
         Stop       lowerStop = new Stop(0.0, stops.get(0).getColor());
         Stop       upperStop = new Stop(1.0, stops.get(stops.size() - 1).getColor());
-                
+
         for (Stop stop : stops) {
             double currentFraction = stop.getOffset();
             if (Double.compare(currentFraction, fraction) == 0) {
@@ -391,5 +390,18 @@ public class HeatMap {
 
         double interpolationFraction = (fraction - lowerStop.getOffset()) / (upperStop.getOffset() - lowerStop.getOffset());
         return (Color) Interpolator.LINEAR.interpolate(lowerStop.getColor(), upperStop.getColor(), interpolationFraction);
+    }
+
+    private void resize() {
+        double width  = getFitWidth();
+        double height = getFitHeight();
+
+        monochrome.setWidth(width);
+        monochrome.setHeight(height);
+
+        if (width > 0 && height > 0) {
+            monochromeImage = new WritableImage(monochrome.widthProperty().intValue(), monochrome.heightProperty().intValue());
+            updateHeatMap();
+        }
     }
 }
