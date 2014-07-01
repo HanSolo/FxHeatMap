@@ -20,6 +20,7 @@ import javafx.animation.Interpolator;
 import javafx.application.Platform;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Point2D;
+import javafx.scene.Node;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -283,19 +284,28 @@ public class HeatMap extends ImageView {
      * Saves the current heat map image as png with the given name to the desktop folder of the current user
      * @param FILE_NAME
      */
-    public void saveAsPng(final String FILE_NAME) {
+    public void saveAsPng(final String FILE_NAME) {        
+        saveAsPng(this, FILE_NAME + ".png");
+    }
+
+    /**
+     * Saves the given node as png with the given name to the desktop folder of the current user
+     * @param NODE
+     * @param FILE_NAME
+     */
+    public void saveAsPng(final Node NODE, final String FILE_NAME) {
         new Thread(() ->
                        Platform.runLater(() -> {
                            final String TARGET = System.getProperty("user.home") + "/Desktop/" + FILE_NAME + ".png";
                            try {
-                               ImageIO.write(SwingFXUtils.fromFXImage(snapshot(SNAPSHOT_PARAMETERS, null), null), "png", new File(TARGET));
+                               ImageIO.write(SwingFXUtils.fromFXImage(NODE.snapshot(SNAPSHOT_PARAMETERS, null), null), "png", new File(TARGET));
                            } catch (IOException exception) {
                                // handle exception here
                            }
                        })
-        ).start();
+        ).start();    
     }
-
+    
     /**
      * Create an image that contains a circle filled with a
      * radial gradient from white to transparent
